@@ -1,0 +1,91 @@
+import SyntacticTree.Expression.*;
+import SyntacticTree.Statement.*;
+import java.util.*;
+parser code {:
+    
+    public void report_error(String message, Object info) {
+   
+        StringBuilder m = new StringBuilder("Error");
+   
+        if (info instanceof java_cup.runtime.Symbol) {
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+   
+            if (s.left >= 0) {                
+                m.append(" in line "+(s.left+1));   
+                if (s.right >= 0)                    
+                    m.append(", column "+(s.right+1));
+            }
+        }
+   
+        m.append(" : "+message);
+   
+        System.err.println(m);
+    }
+   
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        System.exit(1);
+    }
+
+
+    public HashMap<String,Integer> vars = new HashMap<String,Integer>();
+:};   
+terminal           SEMI, PLUS, MINUS, TIMES, EQUALS, PRINT, IF, READ, LPAREN, RPAREN, COLON;
+terminal           GOTO, INTEGER, STRING;
+terminal Integer   NUMBER;
+terminal String    ID;
+terminal GREATERTHAN, LESSTHAN, LESSOREQUALTHAN, GREATEROREQUALTHAN, EQUALSEQUALS, NOTEQUALS;
+
+non terminal Object declaration_list, type;
+non terminal List<StatementNode> program, statement_list;
+non terminal StatementNode statement;
+non terminal ExpressionNode    expr, factor, term, sumfactor;
+non terminal IdNode id;
+
+
+    program ::= declaration_list statement_list:sl {:RESULT = sl;  :}
+    ;
+
+    declaration_list ::= type ID SEMI declaration_list
+    |
+    ;
+
+    type ::= INTEGER
+            | STRING
+            ;
+
+   statement_list ::= statement_list:xD statement:xP {:  xD.add(xP); RESULT = xD; :}
+                 | {: List<StatementNode> nodeList = new ArrayList<StatementNode>(); RESULT = nodeList; :}
+                  ;
+
+   statement ::= PRINT expr:e SEMI {:  RESULT = new PrintNode(e); :}
+                | READ id:i SEMI {: RESULT = new ReadNode(i); :}
+                | id:i EQUALS expr:e SEMI {: RESULT = new AssignmentNode(e, i); :}
+                | IF expr:e GOTO ID:i {: RESULT = new IfNode(e,new GoToNode(i)); :}
+                ;
+
+   expr      ::= expr:e GREATERTHAN sumfactor:f {: RESULT = new GreaterThanNode(f,e); :}
+               | expr:e LESSTHAN sumfactor:f {: RESULT = new LessThanNode(f,e); :}
+               | expr:e GREATEROREQUALTHAN sumfactor:f {: RESULT = new GreaterOrEqualsThanNode(f,e); :}
+               | expr:e LESSOREQUALTHAN sumfactor:f {: RESULT = new LessOrEqualsThanNode(f,e); :}
+               | expr:e EQUALSEQUALS sumfactor:f {: RESULT = new EqualsNode(f,e); :}
+               | expr:e NOTEQUALS sumfactor:f {: RESULT = new NotEqualsNode(f,e); :}
+               | sumfactor:f {: RESULT = f; :}
+                ;
+
+   sumfactor ::= sumfactor:e PLUS factor:f {: RESULT = new SumNode(f,e); :}
+                 | sumfactor:e MINUS factor:f {: RESULT = new SubNode(f,e); :}
+                 | factor:f {: RESULT = f; :}
+                 ;
+
+   factor    ::= factor:f TIMES term:t {: RESULT = new MultNode(t,f); :}
+                 | term:t {: RESULT = t; :}
+                 ;
+
+   term      ::= LPAREN expr:e RPAREN {: RESULT = e; :}
+               | NUMBER:n {: RESULT = new NumberNode(n); :}
+               | id:i {: RESULT = i; :}
+               ;
+
+   id        ::= ID:i {:RESULT = new IdNode(i); :}
+                 ;
